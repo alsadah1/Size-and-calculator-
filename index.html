@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Storage Tank Blanketing PCV Evaluator</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        h2 {
+            text-align: center;
+            color: #2c3e50;
+        }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .panel {
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            flex: 1;
+            min-width: 300px;
+        }
+        .panel h3 {
+            margin-top: 0;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        td {
+            padding: 8px 0;
+        }
+        input {
+            width: 90%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        /* Schematic CSS Art */
+        .schematic {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            margin: 40px 0;
+        }
+        .nitrogen-line {
+            width: 4px;
+            height: 50px;
+            background: #3498db;
+            position: relative;
+        }
+        .nitrogen-line::after {
+            content: 'N2 IN';
+            position: absolute;
+            left: 10px;
+            top: 10px;
+            font-weight: bold;
+            color: #3498db;
+        }
+        .valve {
+            width: 30px;
+            height: 20px;
+            background: #e74c3c;
+            clip-path: polygon(0 0, 100% 100%, 100% 0, 0 100%);
+            margin-bottom: 5px;
+        }
+        .tank {
+            width: 180px;
+            height: 220px;
+            background: #bdc3c7;
+            border: 4px solid #7f8c8d;
+            border-radius: 10px 10px 5px 5px;
+            position: relative;
+            display: flex;
+            align-items: flex-end;
+        }
+        .liquid-level {
+            width: 100%;
+            height: 60%;
+            background: rgba(52, 152, 219, 0.5);
+            border-bottom-left-radius: 2px;
+            border-bottom-right-radius: 2px;
+        }
+        .outlet-line {
+            width: 80px;
+            height: 4px;
+            background: #34495e;
+            position: absolute;
+            bottom: 20px;
+            right: -84px;
+        }
+        .pump {
+            width: 40px;
+            height: 40px;
+            background: #e67e22;
+            border-radius: 50%;
+            position: absolute;
+            bottom: 2px;
+            right: -120px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        .pump-label {
+            position: absolute;
+            bottom: -25px;
+            right: -140px;
+            font-weight: bold;
+            color: #e67e22;
+            white-space: nowrap;
+        }
+        
+        .action-area {
+            text-align: center;
+            margin-top: 40px;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        button {
+            background-color: #2ecc71;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background-color: #27ae60;
+        }
+        #result-card {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        #math-breakdown {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 8px;
+            background-color: #fff;
+            text-align: left;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .math-title {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #2c3e50;
+            border-bottom: 2px solid #ccc;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+        .highlight {
+            background-color: #ffffcc;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Storage Tank PCV Sizing Evaluator</h2>
+    
+    <div class="container">
+        <!-- Nitrogen Input Parameters -->
+        <div class="panel">
+            <h3>Nitrogen Blanketing (IN)</h3>
+            <table>
+                <tr>
+                    <td>Header Supply Pressure (barg):</td>
+                    <td><input type="number" id="p1_barg" value="4" step="0.1"></td>
+                </tr>
+                <tr>
+                    <td>Nitrogen Temp (Kelvin):</td>
+                    <td><input type="number" id="temp" value="293"></td>
+                </tr>
+                <tr>
+                    <td>Thermal Inbreathing (Nm³/h):</td>
+                    <td><input type="number" id="q_thermal" value="50"></td>
+                </tr>
+                <tr>
+                    <td>Existing PCV Rated Cv:</td>
+                    <td><input type="number" id="cv_existing" placeholder="e.g., 2.5" step="0.1"></td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Tank & Pump Schematic -->
+        <div class="panel" style="display: flex; justify-content: center; align-items: center; background: transparent; box-shadow: none;">
+            <div class="schematic">
+                <div class="nitrogen-line"></div>
+                <div class="valve"></div>
+                <div class="tank">
+                    <div class="liquid-level"></div>
+                    <div class="outlet-line"></div>
+                    <div class="pump">P</div>
+                    <div class="pump-label">Ship Loading Out</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pump Input Parameters -->
+        <div class="panel">
+            <h3>Ship Loading Pump (OUT)</h3>
+            <table>
+                <tr>
+                    <td>Max Pump-Out Rate (m³/h):</td>
+                    <td><input type="number" id="q_pump" placeholder="e.g., 500" step="10"></td>
+                </tr>
+                <tr>
+                    <td>Liquid Specific Gravity:</td>
+                    <td><input type="number" id="sg_liquid" value="1.0" step="0.01"></td>
+                </tr>
+            </table>
+            <p style="font-size: 0.85em; color: #7f8c8d; margin-top: 15px; font-family: 'Segoe UI', sans-serif;">
+                *1 m³/h of liquid pumped out requires exactly 1 Nm³/h of nitrogen replacement.
+            </p>
+        </div>
+    </div>
+
+    <div class="action-area">
+        <button onclick="evaluateSizing()">Calculate & Verify Sizing</button>
+        
+        <div id="result-card">
+            <span id="result-text"></span>
+        </div>
+
+        <!-- Real-Time Math & Logic Output -->
+        <div id="math-breakdown"></div>
+    </div>
+
+    <script>
+        function evaluateSizing() {
+            // Fetch values
+            const p1_barg = parseFloat(document.getElementById('p1_barg').value);
+            const temp = parseFloat(document.getElementById('temp').value);
+            const qThermal = parseFloat(document.getElementById('q_thermal').value);
+            const cvExisting = parseFloat(document.getElementById('cv_existing').value);
+            const qPump = parseFloat(document.getElementById('q_pump').value);
+            
+            if (isNaN(p1_barg) || isNaN(temp) || isNaN(cvExisting) || isNaN(qPump) || isNaN(qThermal)) {
+                alert("Please fill in all numerical parameters before calculating.");
+                return;
+            }
+
+            // Constants
+            const sgN2 = 0.967; // Specific Gravity of Nitrogen Gas
+            const atmPressure = 1.01325; // Atmospheric pressure in bar
+
+            // Step 1: Pressure Conversion
+            const p1_bara = p1_barg + atmPressure;
+            
+            // Step 2: Total Required Flow
+            const qReq = qPump + qThermal; 
+            
+            // Step 3: Required Cv Calculation (Choked Flow API/ISA formula)
+            const cvRequired = (qReq * Math.sqrt(sgN2 * temp)) / (136 * p1_bara);
+            
+            // Step 4: Logic Processing & Result Display
+            const resultCard = document.getElementById('result-card');
+            const resultText = document.getElementById('result-text');
+            const mathDiv = document.getElementById('math-breakdown');
+            
+            resultCard.style.display = "block";
+            mathDiv.style.display = "block";
+
+            let statusColor, statusBorder, statusMsg, logicExplanation;
+
+            if (cvExisting < cvRequired) {
+                statusColor = "#ffcccc";
+                statusBorder = "#e74c3c";
+                statusMsg = "<span style='color:#c0392b;'>STATUS: UNDERSIZED<br>Danger of Tank Vacuum During Ship Loading!</span>";
+                logicExplanation = `<strong>Rule Triggered: Existing C<sub>v</sub> < Required C<sub>v</sub></strong><br>
+                <span style="color:#c0392b;">Rationale: ${cvExisting} < ${cvRequired.toFixed(2)}.</span> The valve physically cannot pass enough nitrogen to replace the volume drawn out by the pump. The tank will pull a vacuum.`;
+            } else if (cvExisting > (cvRequired * 1.5)) {
+                statusColor = "#fdebd0";
+                statusBorder = "#e67e22";
+                statusMsg = "<span style='color:#d35400;'>STATUS: OVERSIZED<br>Risk of Valve Chattering & Mechanical Wear.</span>";
+                logicExplanation = `<strong>Rule Triggered: Existing C<sub>v</sub> > (Required C<sub>v</sub> &times; 1.5)</strong><br>
+                <span style="color:#d35400;">Rationale: ${cvExisting} > ${(cvRequired * 1.5).toFixed(2)}.</span> The valve capacity is over 150% of the maximum required demand. It will likely chatter or hunt, causing severe mechanical wear on the trim.`;
+            } else {
+                statusColor = "#d5f5e3";
+                statusBorder = "#2ecc71";
+                statusMsg = "<span style='color:#27ae60;'>STATUS: PERFECTLY SIZED<br>Valve capacity is optimally matched to demand.</span>";
+                logicExplanation = `<strong>Rule Triggered: Required C<sub>v</sub> &le; Existing C<sub>v</sub> &le; (Required C<sub>v</sub> &times; 1.5)</strong><br>
+                <span style="color:#27ae60;">Rationale: ${cvExisting} is safely above ${cvRequired.toFixed(2)}, but not excessively oversized.</span> The valve will maintain steady pressure without chattering.`;
+            }
+
+            resultCard.style.backgroundColor = statusColor;
+            resultCard.style.border = `2px solid ${statusBorder}`;
+            resultText.innerHTML = statusMsg;
+
+            // Render the Math Breakdown
+            mathDiv.innerHTML = `
+                <h3 class="math-title">Calculation Rationale & Real-Time Equations</h3>
+                
+                <p><strong>Step 1: Convert Gauge Pressure to Absolute Pressure</strong><br>
+                <em>Thermodynamic equations require absolute pressure to calculate gas density properly.</em><br>
+                P<sub>1(bara)</sub> = P<sub>1(barg)</sub> + 1.01325<br>
+                P<sub>1(bara)</sub> = ${p1_barg} + 1.01325 = <span class="highlight"><strong>${p1_bara.toFixed(3)} bara</strong></span></p>
+
+                <p><strong>Step 2: Calculate Total Required Flow (Q<sub>req</sub>)</strong><br>
+                <em>API 2000 mandates combining the maximum pump-out rate with thermal contraction (inbreathing).</em><br>
+                Q<sub>req</sub> = Q<sub>pump</sub> + Q<sub>thermal</sub><br>
+                Q<sub>req</sub> = ${qPump} + ${qThermal} = <span class="highlight"><strong>${qReq} Nm&sup3;/h</strong></span></p>
+
+                <p><strong>Step 3: Calculate Required Valve Coefficient (C<sub>v,req</sub>)</strong><br>
+                <em>Using the ISA Choked (Critical) Gas Flow Equation:</em><br>
+                C<sub>v,req</sub> = (Q<sub>req</sub> &times; &radic;(S<sub>g</sub> &times; T)) &divide; (136 &times; P<sub>1(bara)</sub>)<br>
+                C<sub>v,req</sub> = (${qReq} &times; &radic;(0.967 &times; ${temp})) &divide; (136 &times; ${p1_bara.toFixed(3)})<br>
+                C<sub>v,req</sub> = (${qReq} &times; ${(Math.sqrt(sgN2 * temp)).toFixed(2)}) &divide; ${(136 * p1_bara).toFixed(2)}<br>
+                C<sub>v,req</sub> = <span class="highlight"><strong>${cvRequired.toFixed(2)}</strong></span></p>
+
+                <p><strong>Step 4: Sizing Logic Evaluation</strong><br>
+                Evaluated Condition: Existing C<sub>v</sub> (<strong>${cvExisting}</strong>) vs. Required C<sub>v</sub> (<strong>${cvRequired.toFixed(2)}</strong>)<br><br>
+                ${logicExplanation}</p>
+            `;
+        }
+    </script>
+</body>
+</html>
