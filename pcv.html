@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Valve Sizing & Tank Hydraulic Simulator - TK-8013B</title>
+    <style>
+        :root {
+            --primary: #0056b3;
+            --bg-color: #f4f7f6;
+            --panel-bg: #ffffff;
+            --border: #ccc;
+            --danger: #cc0000;
+            --warning: #ff9900;
+            --success: #006600;
+            --oversized: #8a2be2;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .panel {
+            background: var(--panel-bg);
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        h2, h3 {
+            color: var(--primary);
+            margin-top: 0;
+            border-bottom: 2px solid #eef2f5;
+            padding-bottom: 10px;
+        }
+        .form-group {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        label {
+            font-weight: bold;
+            color: #444;
+            flex: 1;
+        }
+        input[type="number"] {
+            width: 120px;
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 1em;
+            text-align: right;
+        }
+        .readonly-input {
+            background-color: #eef2f5;
+            color: #555;
+            border: 1px dashed var(--border);
+        }
+        
+        /* Comparison Grid */
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .card {
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: #f9f9f9;
+        }
+        .card-header {
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+            padding-bottom: 5px;
+            border-bottom: 2px solid #ddd;
+        }
+        .card.old { border-top: 4px solid #777; }
+        .card.new { border-top: 4px solid var(--primary); }
+        
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 1.05em;
+        }
+        .stat-row.highlight {
+            font-weight: bold;
+            font-size: 1.15em;
+        }
+        .utilization-bar {
+            height: 20px;
+            background: #ddd;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+        .utilization-fill {
+            height: 100%;
+            transition: width 0.4s ease, background-color 0.4s ease;
+        }
+        
+        /* Live Formula CSS */
+        .live-formula-container {
+            background: #222;
+            color: #0f0;
+            padding: 20px;
+            border-radius: 6px;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3em;
+            overflow-x: auto;
+            margin-bottom: 15px;
+        }
+        .equation {
+            display: inline-flex;
+            align-items: center;
+        }
+        .fraction {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0 10px;
+        }
+        .numerator {
+            border-bottom: 2px solid #0f0;
+            padding: 0 5px 2px 5px;
+        }
+        .denominator {
+            padding: 2px 5px 0 5px;
+        }
+        
+        .diagnosis-text {
+            font-size: 0.9em;
+            margin-top: 15px;
+            font-weight: bold;
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        /* SVG Sketch */
+        .sketch-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #fff;
+            border: 1px dashed #ccc;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        
+        @media (max-width: 768px) {
+            .dashboard, .comparison-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="dashboard">
+    <!-- Input Section -->
+    <div class="panel">
+        <h2>Live System Parameters</h2>
+        
+        <!-- Tank Physical Dimensions -->
+        <h3>Tank Dimensions (API 2000 Inbreathing)</h3>
+        <div class="form-group">
+            <label>Tank Diameter (m):</label>
+            <input type="number" id="tank_dia" value="10.0" step="any" oninput="updateAll()">
+        </div>
+        <div class="form-group">
+            <label>Tank Height (m):</label>
+            <input type="number" id="tank_height" value="8.21" step="any" oninput="updateAll()">
+        </div>
+        <div class="form-group">
+            <label>Thermal Inbreathing (Nm³/h):<br><small><i>(Auto-calculated: Volume &times; 0.169)</i></small></label>
+            <input type="number" id="thermal_in" class="readonly-input" value="109.0" readonly>
+        </div>
+
+        <!-- Tank Hydraulic Draw -->
+        <h3>Current Hydraulic Reality</h3>
+        <div class="form-group">
+            <label>Max Pump Out Rate (m³/h):</label>
+            <input type="number" id="pump_out" value="660" step="any" oninput="updateAll()">
+        </div>
+        
+        <!-- PCV Parameters -->
+        <h3>Process Conditions</h3>
+        <div class="form-group">
+            <label>Inlet Pressure P<sub>1</sub> (bara):</label>
+            <input type="number" id="p1" value="6.407" step="any" oninput="updateAll()">
+        </div>
+        <div class="form-group">
+            <label>Specific Gravity (S<sub>g</sub>):</label>
+            <input type="number" id="sg" value="0.978" step="any" oninput="updateAll()">
+        </div>
+        <div class="form-group">
+            <label>Temperature T (Kelvin):</label>
+            <input type="number" id="temp" value="323.15" step="any" oninput="updateAll()">
+        </div>
+        <div class="form-group">
+            <label>Valve Rated C<sub>v</sub> Limit:</label>
+            <input type="number" id="rated_cv" value="15.6" step="any" oninput="updateAll()">
+        </div>
+    </div>
+
+    <!-- Right Column: Formula & Comparison -->
+    <div class="panel">
+        <h2>Engineering Diagnosis</h2>
+        
+        <h3 style="margin-top: 0;">Live C<sub>v</sub> Equation Engine</h3>
+        <div class="live-formula-container">
+            <div class="equation">
+                <span id="live_cv_result">C<sub>v</sub></span> = 
+                <div class="fraction">
+                    <div class="numerator" id="live_num">Q &times; &radic;(S<sub>g</sub> &times; T)</div>
+                    <div class="denominator" id="live_den">136 &times; P<sub>1</sub></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="comparison-grid">
+            <!-- Old Design Card -->
+            <div class="card old">
+                <div class="card-header">Original Datasheet Design</div>
+                <div class="stat-row">
+                    <span>Target Flow:</span>
+                    <span>769 Nm³/h</span>
+                </div>
+                <div class="stat-row highlight">
+                    <span>Calculated C<sub>v</sub>:</span>
+                    <span>7.781</span>
+                </div>
+                <div style="margin-top: 15px; font-weight: bold; font-size: 0.9em;">Capacity Utilization (49.8%)</div>
+                <div class="utilization-bar">
+                    <div class="utilization-fill" style="width: 49.8%; background: var(--success);"></div>
+                </div>
+                <p style="font-size: 0.85em; color: var(--success); margin-top: 10px; font-weight: bold;">
+                    *OPTIMAL: Designed exactly within the 40-60% sweet spot.
+                </p>
+            </div>
+
+            <!-- Current Reality Card -->
+            <div class="card new">
+                <div class="card-header">Current Pump-Out Reality</div>
+                <div class="stat-row">
+                    <span>Current Max Flow:</span>
+                    <span id="card_new_flow">-- Nm³/h</span>
+                </div>
+                <div class="stat-row highlight" id="cv_highlight">
+                    <span>Required C<sub>v</sub>:</span>
+                    <span id="card_new_cv">--</span>
+                </div>
+                <div style="margin-top: 15px; font-weight: bold; font-size: 0.9em;">Capacity Utilization (<span id="card_new_util_text">0</span>%)</div>
+                <div class="utilization-bar">
+                    <div class="utilization-fill" id="card_new_util_bar" style="width: 0%; background: #ccc;"></div>
+                </div>
+                <div id="dynamic_diagnosis" class="diagnosis-text" style="background: #eee; color: #333;">
+                    Waiting for input...
+                </div>
+            </div>
+        </div>
+        
+        <h3 style="margin-top: 30px;">Process Geometry Sketch</h3>
+        <div class="sketch-container">
+            <svg width="100%" height="300" viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <marker id="arrow-blue" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <path d="M 0 0 L 10 5 L 0 10 z" fill="#0056b3" />
+                    </marker>
+                    <marker id="arrow-black" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <path d="M 0 0 L 10 5 L 0 10 z" fill="#333" />
+                    </marker>
+                </defs>
+
+                <!-- Tank Structure -->
+                <rect x="120" y="80" width="160" height="180" fill="none" stroke="#333" stroke-width="4" rx="10"/>
+                <!-- Dimension Lines -->
+                <path d="M 120 70 L 120 60 L 280 60 L 280 70" fill="none" stroke="#888" stroke-width="1.5"/>
+                <text x="180" y="55" font-family="sans-serif" font-size="12" fill="#888">Diameter</text>
+                
+                <path d="M 110 80 L 100 80 L 100 260 L 110 260" fill="none" stroke="#888" stroke-width="1.5"/>
+                <text x="55" y="175" font-family="sans-serif" font-size="12" fill="#888">Height</text>
+
+                <!-- Liquid Inside -->
+                <rect x="122" y="150" width="156" height="108" fill="#a4c2f4" rx="5"/>
+                <text x="175" y="210" font-family="sans-serif" font-size="14" fill="#333">LIQUID</text>
+                <text x="155" y="120" font-family="sans-serif" font-size="14" fill="#666">VAPOR SPACE</text>
+
+                <!-- Mixed Gas IN (PCV) -->
+                <path d="M 20 100 L 140 100 L 140 115" fill="none" stroke="#0056b3" stroke-width="3" marker-end="url(#arrow-blue)"/>
+                <circle cx="80" cy="100" r="12" fill="#fff" stroke="#0056b3" stroke-width="2"/>
+                <text x="70" y="105" font-family="sans-serif" font-size="12" font-weight="bold" fill="#0056b3">PCV</text>
+                <text x="10" y="85" font-family="sans-serif" font-size="14" font-weight="bold" fill="#0056b3">Mixed Gas IN</text>
+
+                <!-- Pump Draw OUT -->
+                <path d="M 280 240 L 350 240" fill="none" stroke="#333" stroke-width="3" marker-end="url(#arrow-black)"/>
+                <circle cx="320" cy="240" r="18" fill="#fff" stroke="#333" stroke-width="3"/>
+                <text x="313" y="246" font-family="sans-serif" font-size="18" font-weight="bold" fill="#333">P</text>
+                <text x="290" y="275" font-family="sans-serif" font-size="12" font-weight="bold" fill="#333">Pump Draw</text>
+            </svg>
+        </div>
+    </div>
+</div>
+
+<script>
+    function updateAll() {
+        // 1. Fetch raw strings to handle empty inputs gracefully
+        let rawDia = document.getElementById('tank_dia').value;
+        let rawHeight = document.getElementById('tank_height').value;
+        let rawPump = document.getElementById('pump_out').value;
+        let rawP1 = document.getElementById('p1').value;
+        let rawSg = document.getElementById('sg').value;
+        let rawTemp = document.getElementById('temp').value;
+        let rawRatedCv = document.getElementById('rated_cv').value;
+
+        // 2. Calculate Thermal Inbreathing safely
+        let thermalIn = 0;
+        if (rawDia !== "" && rawHeight !== "") {
+            let radius = parseFloat(rawDia) / 2;
+            let volume = Math.PI * Math.pow(radius, 2) * parseFloat(rawHeight);
+            thermalIn = volume * 0.169;
+            document.getElementById('thermal_in').value = thermalIn.toFixed(1);
+        } else {
+            document.getElementById('thermal_in').value = "";
+        }
+
+        // 3. Process Variables (fallback to empty/null if deleted)
+        let pumpOut = rawPump !== "" ? parseFloat(rawPump) : 0;
+        let totalQ = pumpOut + thermalIn;
+        let p1 = rawP1 !== "" ? parseFloat(rawP1) : null;
+        let sg = rawSg !== "" ? parseFloat(rawSg) : null;
+        let temp = rawTemp !== "" ? parseFloat(rawTemp) : null;
+        let ratedCv = rawRatedCv !== "" ? parseFloat(rawRatedCv) : null;
+
+        // 4. Update the Chalkboard Equation (Show variables if empty)
+        let strQ = (totalQ > 0) ? totalQ.toFixed(1) : "Q";
+        let strSg = (sg !== null) ? sg : "S<sub>g</sub>";
+        let strTemp = (temp !== null) ? temp : "T";
+        let strP1 = (p1 !== null) ? p1 : "P<sub>1</sub>";
+
+        document.getElementById('live_num').innerHTML = `${strQ} &times; &radic;(${strSg} &times; ${strTemp})`;
+        document.getElementById('live_den').innerHTML = `136 &times; ${strP1}`;
+
+        // 5. Calculate New Cv & Utilization if all variables exist
+        if (totalQ > 0 && p1 !== null && sg !== null && temp !== null && ratedCv !== null) {
+            let reqCv = (totalQ * Math.sqrt(sg * temp)) / (136 * p1);
+            let utilization = (reqCv / ratedCv) * 100;
+
+            document.getElementById('live_cv_result').innerHTML = `<b>${reqCv.toFixed(2)}</b>`;
+            document.getElementById('card_new_flow').innerText = totalQ.toFixed(1) + " Nm³/h";
+            document.getElementById('card_new_cv').innerText = reqCv.toFixed(3);
+            
+            document.getElementById('card_new_util_text').innerText = utilization.toFixed(1);
+            
+            let utilBar = document.getElementById('card_new_util_bar');
+            utilBar.style.width = Math.min(utilization, 100) + '%';
+            
+            let diagBox = document.getElementById('dynamic_diagnosis');
+            let cvHighlight = document.getElementById('cv_highlight');
+
+            // 6. Enforcing the 40-60% Sweet Spot Logic
+            if (utilization > 85) {
+                utilBar.style.background = "var(--danger)";
+                cvHighlight.style.color = "var(--danger)";
+                diagBox.style.background = "#ffe6e6";
+                diagBox.style.color = "var(--danger)";
+                diagBox.style.border = "1px solid var(--danger)";
+                diagBox.innerHTML = "UNDERSIZED (CRITICAL): Exceeds 85% utilization. Valve mechanically cannot open wide enough. Vacuum failure guaranteed under max load.";
+            } else if (utilization > 60) {
+                utilBar.style.background = "var(--warning)";
+                cvHighlight.style.color = "var(--warning)";
+                diagBox.style.background = "#fff0b3";
+                diagBox.style.color = "#b36b00";
+                diagBox.style.border = "1px solid var(--warning)";
+                diagBox.innerHTML = "UNDERSIZED (MARGINAL): Exceeds 60% sweet spot. Valve vulnerable to mechanical droop and sluggish compensation.";
+            } else if (utilization >= 40 && utilization <= 60) {
+                utilBar.style.background = "var(--success)";
+                cvHighlight.style.color = "var(--success)";
+                diagBox.style.background = "#e6ffe6";
+                diagBox.style.color = "var(--success)";
+                diagBox.style.border = "1px solid var(--success)";
+                diagBox.innerHTML = "OPTIMAL (SWEET SPOT): Valve operates perfectly within the 40%-60% linear control range.";
+            } else {
+                utilBar.style.background = "var(--oversized)";
+                cvHighlight.style.color = "var(--oversized)";
+                diagBox.style.background = "#f2e6ff";
+                diagBox.style.color = "var(--oversized)";
+                diagBox.style.border = "1px solid var(--oversized)";
+                diagBox.innerHTML = "OVERSIZED: Operating below 40% capacity. Valve will barely crack open, risking vibration and chattering damage.";
+            }
+        } else {
+            // Reset if missing inputs
+            document.getElementById('live_cv_result').innerHTML = "C<sub>v</sub>";
+            document.getElementById('card_new_flow').innerText = "-- Nm³/h";
+            document.getElementById('card_new_cv').innerText = "--";
+            document.getElementById('card_new_util_text').innerText = "0";
+            document.getElementById('card_new_util_bar').style.width = "0%";
+            document.getElementById('card_new_util_bar').style.background = "#ccc";
+            document.getElementById('cv_highlight').style.color = "#333";
+            
+            let diagBox = document.getElementById('dynamic_diagnosis');
+            diagBox.style.background = "#eee";
+            diagBox.style.color = "#333";
+            diagBox.style.border = "none";
+            diagBox.innerHTML = "Waiting for complete variable input...";
+        }
+    }
+
+    // Initialize on load
+    window.onload = updateAll;
+</script>
+
+</body>
+</html>
