@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Advanced Valve Sizing & Tank Hydraulic Simulator - TK-8013B</title>
+    <title>N2 Blanketing Valve Sizing Calculator</title>
     <style>
         :root {
             --primary: #0056b3;
@@ -14,6 +14,7 @@
             --warning: #ff9900;
             --success: #006600;
             --oversized: #8a2be2;
+            --text-muted: #666;
         }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -26,7 +27,7 @@
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 20px;
-            max-width: 1200px;
+            max-width: 1300px;
             margin: 0 auto;
         }
         .panel {
@@ -35,25 +36,39 @@
             border-radius: 8px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
-        h2, h3 {
+        h2 {
             color: var(--primary);
             margin-top: 0;
             border-bottom: 2px solid #eef2f5;
             padding-bottom: 10px;
         }
+        h3 {
+            background: #eef2f5;
+            padding: 8px 12px;
+            border-left: 4px solid var(--primary);
+            margin-top: 25px;
+            border-radius: 3px;
+            font-size: 1.1em;
+        }
         .form-group {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px dashed #eee;
+        }
+        .input-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 15px;
         }
         label {
             font-weight: bold;
             color: #444;
             flex: 1;
         }
-        input[type="number"], select {
-            width: 130px;
+        input[type="text"], input[type="number"], select {
+            width: 140px;
             padding: 8px;
             border: 1px solid var(--border);
             border-radius: 4px;
@@ -61,11 +76,22 @@
             text-align: right;
             font-family: inherit;
         }
+        input[type="text"] {
+            text-align: left;
+            width: 180px;
+        }
         .readonly-input {
             background-color: #eef2f5;
-            color: #555;
-            border: 1px dashed var(--border);
+            color: var(--primary);
+            border: 1px dashed var(--primary);
             font-weight: bold;
+        }
+        .help-text {
+            font-size: 0.85em;
+            color: var(--text-muted);
+            margin-top: 4px;
+            font-style: italic;
+            line-height: 1.3;
         }
         
         /* Advanced Panel Controls */
@@ -85,47 +111,14 @@
             display: flex;
             align-items: center;
         }
-        .advanced-header:hover {
-            background: #d4e5f7;
-        }
-        .adv-icon {
-            display: inline-block;
-            width: 20px;
-            font-size: 1.4em;
-            font-weight: bold;
-            margin-right: 10px;
-        }
         .advanced-content {
-            padding: 20px;
+            padding: 15px;
             background: #fafafa;
             border-top: 1px solid var(--primary);
             display: none;
         }
 
-        /* Comparison Grid */
-        .comparison-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-top: 20px;
-        }
-        .card {
-            padding: 15px;
-            border-radius: 6px;
-            border: 1px solid var(--border);
-            background: #f9f9f9;
-        }
-        .card-header {
-            font-weight: bold;
-            text-align: center;
-            margin-bottom: 15px;
-            font-size: 1.1em;
-            padding-bottom: 5px;
-            border-bottom: 2px solid #ddd;
-        }
-        .card.old { border-top: 4px solid #777; }
-        .card.new { border-top: 4px solid var(--primary); }
-        
+        /* Utilization and Live Formulas */
         .stat-row {
             display: flex;
             justify-content: space-between;
@@ -148,19 +141,20 @@
             transition: width 0.4s ease, background-color 0.4s ease;
         }
         
-        /* Live Formula CSS */
         .live-formula-container {
             background: #222;
             color: #0f0;
-            padding: 20px;
+            padding: 15px;
             border-radius: 6px;
             font-family: 'Courier New', Courier, monospace;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            font-size: 1.3em;
+            font-size: 1.1em;
             overflow-x: auto;
             margin-bottom: 15px;
+            gap: 15px;
         }
         .equation {
             display: inline-flex;
@@ -197,102 +191,138 @@
             border: 1px dashed #ccc;
             padding: 20px;
             border-radius: 8px;
-        }
-        
-        @media (max-width: 768px) {
-            .dashboard, .comparison-grid {
-                grid-template-columns: 1fr;
-            }
+            margin-top: 20px;
         }
     </style>
 </head>
 <body>
 
 <div class="dashboard">
-    <!-- Input Section -->
+    <!-- LEFT PANEL: INPUTS -->
     <div class="panel">
-        <h2>Live System Parameters</h2>
+        <h2>System Parameters</h2>
         
-        <!-- Tank Physical Dimensions -->
-        <h3>Tank Dimensions & Hydraulics</h3>
+        <!-- Tank Profile -->
+        <h3>1. Tank Profile & Dimensions</h3>
         <div class="form-group">
-            <label>Tank Diameter (m):</label>
-            <input type="number" id="tank_dia" value="27.0" step="any" oninput="updateAll()">
+            <div class="input-row">
+                <label>Tank Equipment Tag:</label>
+                <input type="text" id="tank_name" value="TK-8013B" oninput="updateAll()">
+            </div>
+            <div class="help-text">The official P&ID identifier (displays above the tank sketch).</div>
         </div>
         <div class="form-group">
-            <label>Tank Height (m):</label>
-            <input type="number" id="tank_height" value="18.0" step="any" oninput="updateAll()">
+            <div class="input-row">
+                <label>Stored Product:</label>
+                <input type="text" id="tank_product" value="Butyl Acrylate" oninput="updateAll()">
+            </div>
+            <div class="help-text">The liquid stored inside the tank.</div>
         </div>
         <div class="form-group">
-            <label>Max Pump Out Rate (m³/h):</label>
-            <input type="number" id="pump_out" value="660" step="any" oninput="updateAll()">
+            <div class="input-row">
+                <label>Tank Diameter (m):</label>
+                <input type="number" id="tank_dia" value="27.0" step="any" oninput="updateAll()">
+            </div>
+            <div class="help-text">Used to calculate the internal volume for thermal contraction.</div>
+        </div>
+        <div class="form-group">
+            <div class="input-row">
+                <label>Tank Height (m):</label>
+                <input type="number" id="tank_height" value="18.0" step="any" oninput="updateAll()">
+            </div>
+            <div class="help-text">Used with diameter to determine total volumetric capacity.</div>
+        </div>
+
+        <!-- OUT: Vacuum Demands -->
+        <h3>2. OUT (Vacuum Demands)</h3>
+        <div class="form-group">
+            <div class="input-row">
+                <label>Liquid Pump-Out Rate (m³/h):</label>
+                <input type="number" id="pump_out" value="660" step="any" oninput="updateAll()">
+            </div>
+            <div class="help-text">The maximum rate the ship loading pump steals volume from the tank.</div>
         </div>
         
-        <!-- Advanced API 2000 Panel -->
         <div class="advanced-wrapper">
             <div class="advanced-header" onclick="toggleAdvanced()">
-                <span class="adv-icon" id="adv_icon">+</span> Advanced API 2000 Simulation
+                <span id="adv_icon">+</span> Advanced API 2000 Thermal Options
             </div>
             <div class="advanced-content" id="adv_content">
-                <div class="form-group">
+                <div class="input-row" style="margin-bottom: 10px;">
                     <label>Calculation Standard:</label>
                     <select id="api_std" onchange="updateAll()">
                         <option value="modern">7th Edition (Modern)</option>
                         <option value="legacy">Annex A (Legacy)</option>
                     </select>
                 </div>
-                <div class="form-group">
+                <div class="input-row" style="margin-bottom: 10px;">
                     <label>Tank Insulation:</label>
                     <select id="is_insulated" onchange="updateAll()">
                         <option value="yes" selected>Insulated</option>
                         <option value="no">Bare Steel</option>
                     </select>
                 </div>
-                <div class="form-group">
-                    <label>Insulation Factor (R<sub>in</sub>):<br><small><i>(Typically 0.2 to 0.5)</i></small></label>
+                <div class="input-row">
+                    <label>Insulation Factor (R<sub>in</sub>):</label>
                     <input type="number" id="r_in" value="0.5" step="0.1" oninput="updateAll()">
-                </div>
-                <div class="form-group">
-                    <label>API Base Multiplier:<br><small><i>(Standard: 0.169 Nm³/h per m³)</i></small></label>
-                    <input type="number" id="api_mult" value="0.169" step="0.001" oninput="updateAll()">
                 </div>
             </div>
         </div>
 
-        <!-- Calculated Demand Output -->
-        <div class="form-group" style="margin-top: 20px;">
-            <label style="color: var(--primary);">Calculated Thermal Inbreathing:<br><small><i>(Nm³/h based on API settings)</i></small></label>
-            <input type="number" id="thermal_in" class="readonly-input" value="0.0" readonly>
+        <div class="form-group" style="margin-top: 15px; background: #fafafa; padding: 10px; border-radius: 4px;">
+            <div class="input-row">
+                <label style="color: var(--danger);">Calculated Thermal Inbreathing:<br>(Nm³/h)</label>
+                <input type="number" id="thermal_in" class="readonly-input" value="0.0" readonly>
+            </div>
+            <div class="help-text">Auto-calculated gas shrinkage rate if a rainstorm rapidly cools the tank shell.</div>
         </div>
 
-        <!-- PCV Parameters -->
-        <h3 style="margin-top: 20px;">Process Conditions</h3>
+        <!-- IN: PCV Supply Data -->
+        <h3>3. IN (PCV N2 Supply Data)</h3>
         <div class="form-group">
-            <label>Inlet Pressure P<sub>1</sub> (barg):<br><small><i>(Engine auto-adds 1.013 for bara)</i></small></label>
-            <input type="number" id="p1_barg" value="5.394" step="any" oninput="updateAll()">
+            <div class="input-row">
+                <label>Inlet N2 Pressure P<sub>1</sub> (barg):</label>
+                <input type="number" id="p1_barg" value="5.394" step="any" oninput="updateAll()">
+            </div>
+            <div class="help-text">The pressure of the N2 header immediately upstream of the PCV.</div>
         </div>
         <div class="form-group">
-            <label>Specific Gravity (S<sub>g</sub>):</label>
-            <input type="number" id="sg" value="0.978" step="any" oninput="updateAll()">
+            <div class="input-row">
+                <label>Gas Specific Gravity (S<sub>g</sub>):</label>
+                <input type="number" id="sg" value="0.978" step="any" oninput="updateAll()">
+            </div>
+            <div class="help-text">Air = 1.0. Pure N2 is 0.967. Mixed Gas is 0.978.</div>
         </div>
         <div class="form-group">
-            <label>Temperature T (&deg;C):<br><small><i>(Engine auto-adds 273.15 for Kelvin)</i></small></label>
-            <input type="number" id="temp_c" value="50" step="any" oninput="updateAll()">
+            <div class="input-row">
+                <label>Gas Temperature T (&deg;C):</label>
+                <input type="number" id="temp_c" value="50" step="any" oninput="updateAll()">
+            </div>
+            <div class="help-text">Normal flowing temperature of the N2 supply.</div>
         </div>
         <div class="form-group">
-            <label>Valve Rated C<sub>v</sub> Limit:</label>
-            <input type="number" id="rated_cv" value="15.6" step="any" oninput="updateAll()">
+            <div class="input-row">
+                <label>Valve Rated C<sub>v</sub> Limit:</label>
+                <input type="number" id="rated_cv" value="15.6" step="any" oninput="updateAll()">
+            </div>
+            <div class="help-text">The absolute physical maximum flow capacity of the installed valve body.</div>
         </div>
     </div>
 
-    <!-- Right Column: Formula & Comparison -->
+    <!-- RIGHT PANEL: DIAGNOSIS & SVG -->
     <div class="panel">
         <h2>Engineering Diagnosis</h2>
         
-        <h3 style="margin-top: 0;">Live C<sub>v</sub> Equation Engine</h3>
+        <h3 style="margin-top: 0; background: #333; color: #fff; border-left: 4px solid #0f0;">Live Calculation Engine</h3>
         <div class="live-formula-container">
+            <!-- Explicit Inbreathing Summation -->
+            <div style="font-size: 0.9em; border-bottom: 1px dashed #555; padding-bottom: 10px; width: 100%; text-align: center;">
+                <span style="color: #aaa;">Total Demand (Q)</span> = <span id="eq_pump">Pump</span> + <span id="eq_therm">Thermal</span> = <b id="eq_q_total" style="color: #fff;">Q</b> Nm³/h
+            </div>
+            
+            <!-- Cv Formula -->
             <div class="equation">
-                <span id="live_cv_result">C<sub>v</sub></span> = 
+                <span id="live_cv_result">Required C<sub>v</sub></span> = 
                 <div class="fraction">
                     <div class="numerator" id="live_num">Q &times; &radic;(S<sub>g</sub> &times; T<sub>(K)</sub>)</div>
                     <div class="denominator" id="live_den">136 &times; P<sub>1(bara)</sub></div>
@@ -300,51 +330,26 @@
             </div>
         </div>
         
-        <div class="comparison-grid">
-            <!-- Old Design Card -->
-            <div class="card old">
-                <div class="card-header">Original Datasheet Design</div>
-                <div class="stat-row">
-                    <span>Target Flow:</span>
-                    <span>769 Nm³/h</span>
-                </div>
-                <div class="stat-row highlight">
-                    <span>Calculated C<sub>v</sub>:</span>
-                    <span>7.781</span>
-                </div>
-                <div style="margin-top: 15px; font-weight: bold; font-size: 0.9em;">Capacity Utilization (49.8%)</div>
-                <div class="utilization-bar">
-                    <div class="utilization-fill" style="width: 49.8%; background: var(--success);"></div>
-                </div>
-                <p style="font-size: 0.85em; color: var(--success); margin-top: 10px; font-weight: bold;">
-                    *OPTIMAL: Designed perfectly for legacy data.
-                </p>
+        <div style="border: 1px solid var(--border); padding: 15px; border-radius: 6px; background: #f9f9f9;">
+            <div class="stat-row">
+                <span>Total Target Flow (Q):</span>
+                <span id="card_new_flow">-- Nm³/h</span>
             </div>
-
-            <!-- Current Reality Card -->
-            <div class="card new">
-                <div class="card-header">Current Process Reality</div>
-                <div class="stat-row">
-                    <span>Total Flow (Q):</span>
-                    <span id="card_new_flow">-- Nm³/h</span>
-                </div>
-                <div class="stat-row highlight" id="cv_highlight">
-                    <span>Required C<sub>v</sub>:</span>
-                    <span id="card_new_cv">--</span>
-                </div>
-                <div style="margin-top: 15px; font-weight: bold; font-size: 0.9em;">Capacity Utilization (<span id="card_new_util_text">0</span>%)</div>
-                <div class="utilization-bar">
-                    <div class="utilization-fill" id="card_new_util_bar" style="width: 0%; background: #ccc;"></div>
-                </div>
-                <div id="dynamic_diagnosis" class="diagnosis-text" style="background: #eee; color: #333;">
-                    Waiting for input...
-                </div>
+            <div class="stat-row highlight" id="cv_highlight">
+                <span>Required C<sub>v</sub> (Demand):</span>
+                <span id="card_new_cv">--</span>
+            </div>
+            <div style="margin-top: 15px; font-weight: bold; font-size: 0.9em;">Mechanical Capacity Utilization (<span id="card_new_util_text">0</span>%)</div>
+            <div class="utilization-bar">
+                <div class="utilization-fill" id="card_new_util_bar" style="width: 0%; background: #ccc;"></div>
+            </div>
+            <div id="dynamic_diagnosis" class="diagnosis-text" style="background: #eee; color: #333;">
+                Waiting for input...
             </div>
         </div>
         
-        <h3 style="margin-top: 30px;">Process Geometry Sketch</h3>
         <div class="sketch-container">
-            <svg width="100%" height="250" viewBox="0 0 400 250" xmlns="http://www.w3.org/2000/svg">
+            <svg width="100%" height="280" viewBox="0 0 400 280" xmlns="http://www.w3.org/2000/svg">
                 <defs>
                     <marker id="arrow-blue" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
                         <path d="M 0 0 L 10 5 L 0 10 z" fill="#0056b3" />
@@ -354,30 +359,31 @@
                     </marker>
                 </defs>
 
-                <!-- Tank Structure -->
-                <rect x="120" y="50" width="160" height="180" fill="none" stroke="#333" stroke-width="4" rx="10"/>
-                
-                <!-- Insulation Layer Indicator -->
-                <rect id="svg_insulation" x="114" y="44" width="172" height="190" fill="none" stroke="#ff9900" stroke-width="3" stroke-dasharray="6,4" rx="12" style="display:block;"/>
-                <text id="svg_ins_text" x="145" y="30" font-family="sans-serif" font-size="12" fill="#ff9900" font-weight="bold">INSULATED TANK</text>
+                <!-- Dynamic Tank Title -->
+                <text id="svg_tank_title" x="200" y="20" font-family="sans-serif" font-size="16" font-weight="bold" fill="#333" text-anchor="middle">TK-8013B</text>
 
-                <!-- Dimension Lines -->
-                <path d="M 120 40 L 120 30 L 280 30 L 280 40" fill="none" stroke="#888" stroke-width="1.5"/>
-                <text x="180" y="25" font-family="sans-serif" font-size="12" fill="#888">Diameter</text>
+                <!-- Tank Structure -->
+                <rect x="120" y="80" width="160" height="170" fill="none" stroke="#333" stroke-width="4" rx="8"/>
+                
+                <!-- Insulation Indicator -->
+                <rect id="svg_insulation" x="114" y="74" width="172" height="180" fill="none" stroke="#ff9900" stroke-width="3" stroke-dasharray="6,4" rx="10" style="display:block;"/>
                 
                 <!-- Liquid Inside -->
-                <rect x="122" y="130" width="156" height="98" fill="#a4c2f4" rx="5"/>
-                <text x="175" y="180" font-family="sans-serif" font-size="14" fill="#333">LIQUID</text>
+                <rect x="122" y="160" width="156" height="88" fill="#a4c2f4" rx="4"/>
+                <text id="svg_product_text" x="200" y="210" font-family="sans-serif" font-size="13" font-weight="bold" fill="#333" text-anchor="middle">Butyl Acrylate</text>
+                <text x="200" y="130" font-family="sans-serif" font-size="12" fill="#666" text-anchor="middle">Vapor Space</text>
 
-                <!-- Mixed Gas IN (PCV) -->
-                <path d="M 20 80 L 140 80 L 140 95" fill="none" stroke="#0056b3" stroke-width="3" marker-end="url(#arrow-blue)"/>
-                <circle cx="80" cy="80" r="12" fill="#fff" stroke="#0056b3" stroke-width="2"/>
-                <text x="70" y="85" font-family="sans-serif" font-size="12" font-weight="bold" fill="#0056b3">PCV</text>
+                <!-- IN: PCV N2 Line (Now coming from Top) -->
+                <path d="M 200 35 L 200 70" fill="none" stroke="#0056b3" stroke-width="3" marker-end="url(#arrow-blue)"/>
+                <!-- Valve Bowtie -->
+                <path d="M 190 30 L 210 40 L 190 50 L 210 30 Z" fill="#fff" stroke="#0056b3" stroke-width="2"/>
+                <text x="225" y="45" font-family="sans-serif" font-size="12" font-weight="bold" fill="#0056b3">N2 PCV</text>
 
-                <!-- Pump Draw OUT -->
-                <path d="M 280 210 L 350 210" fill="none" stroke="#333" stroke-width="3" marker-end="url(#arrow-black)"/>
-                <circle cx="320" cy="210" r="18" fill="#fff" stroke="#333" stroke-width="3"/>
-                <text x="313" y="216" font-family="sans-serif" font-size="18" font-weight="bold" fill="#333">P</text>
+                <!-- OUT: Pump Draw -->
+                <path d="M 280 230 L 350 230" fill="none" stroke="#cc0000" stroke-width="3" marker-end="url(#arrow-black)"/>
+                <circle cx="320" cy="230" r="15" fill="#fff" stroke="#cc0000" stroke-width="3"/>
+                <text x="314" y="235" font-family="sans-serif" font-size="16" font-weight="bold" fill="#cc0000">P</text>
+                <text x="290" y="260" font-family="sans-serif" font-size="11" font-weight="bold" fill="#cc0000">Pump Draw</text>
             </svg>
         </div>
     </div>
@@ -397,7 +403,13 @@
     }
 
     function updateAll() {
-        // 1. Fetch raw strings
+        // 1. Text Inputs (Update SVG)
+        let tankName = document.getElementById('tank_name').value || "TANK";
+        let tankProduct = document.getElementById('tank_product').value || "PRODUCT";
+        document.getElementById('svg_tank_title').textContent = tankName;
+        document.getElementById('svg_product_text').textContent = tankProduct;
+
+        // 2. Fetch raw numerical strings
         let rawDia = document.getElementById('tank_dia').value;
         let rawHeight = document.getElementById('tank_height').value;
         let rawPump = document.getElementById('pump_out').value;
@@ -406,47 +418,41 @@
         let rawTempC = document.getElementById('temp_c').value;
         let rawRatedCv = document.getElementById('rated_cv').value;
 
-        // Fetch Advanced Inputs
+        // Advanced API settings
         let apiStd = document.getElementById('api_std').value;
         let isInsulated = document.getElementById('is_insulated').value === 'yes';
         let rIn = parseFloat(document.getElementById('r_in').value) || 1.0;
-        let apiMult = parseFloat(document.getElementById('api_mult').value) || 0.169;
-
-        // Update SVG Sketch
         document.getElementById('svg_insulation').style.display = isInsulated ? 'block' : 'none';
-        document.getElementById('svg_ins_text').style.display = isInsulated ? 'block' : 'none';
 
-        // 2. Calculate Volume & API 2000 Thermal Inbreathing
+        // 3. Calculate Thermal Inbreathing
         let thermalIn = 0;
         if (rawDia !== "" && rawHeight !== "") {
             let radius = parseFloat(rawDia) / 2;
             let volume = Math.PI * Math.pow(radius, 2) * parseFloat(rawHeight);
+            let baseThermal = volume * 0.169; // 0.169 is standard API multiplier
             
-            let baseThermal = volume * apiMult; 
-
-            if (apiStd === 'modern' && isInsulated) {
-                thermalIn = baseThermal * rIn; 
-            } else {
-                thermalIn = baseThermal; 
-            }
-            
+            thermalIn = (apiStd === 'modern' && isInsulated) ? (baseThermal * rIn) : baseThermal; 
             document.getElementById('thermal_in').value = thermalIn.toFixed(1);
         } else {
             document.getElementById('thermal_in').value = "";
         }
 
-        // 3. Process Variables & Unit Conversions
+        // 4. Process Total Q and PCV Conditions
         let pumpOut = rawPump !== "" ? parseFloat(rawPump) : 0;
         let totalQ = pumpOut + thermalIn;
         let sg = rawSg !== "" ? parseFloat(rawSg) : null;
         let ratedCv = rawRatedCv !== "" ? parseFloat(rawRatedCv) : null;
         
-        // Convert barg to bara
         let p1Bara = rawP1Barg !== "" ? (parseFloat(rawP1Barg) + 1.013) : null;
-        // Convert Celsius to Kelvin
         let tempK = rawTempC !== "" ? (parseFloat(rawTempC) + 273.15) : null;
 
-        // 4. Update the Chalkboard Equation with absolute units
+        // 5. Update the Live Explanatory Formula
+        let strPump = rawPump !== "" ? pumpOut.toFixed(1) : "Pump";
+        let strTherm = thermalIn > 0 ? thermalIn.toFixed(1) : "Thermal";
+        document.getElementById('eq_pump').innerText = strPump;
+        document.getElementById('eq_therm').innerText = strTherm;
+        document.getElementById('eq_q_total').innerText = totalQ > 0 ? totalQ.toFixed(1) : "Q";
+
         let strQ = (totalQ > 0) ? totalQ.toFixed(1) : "Q";
         let strSg = (sg !== null) ? sg : "S<sub>g</sub>";
         let strTempK = (tempK !== null) ? tempK.toFixed(2) : "T<sub>(K)</sub>";
@@ -455,15 +461,14 @@
         document.getElementById('live_num').innerHTML = `${strQ} &times; &radic;(${strSg} &times; ${strTempK})`;
         document.getElementById('live_den').innerHTML = `136 &times; ${strP1Bara}`;
 
-        // 5. Calculate New Cv & Utilization
+        // 6. Calculate New Cv & Utilization
         if (totalQ > 0 && p1Bara !== null && sg !== null && tempK !== null && ratedCv !== null) {
             let reqCv = (totalQ * Math.sqrt(sg * tempK)) / (136 * p1Bara);
             let utilization = (reqCv / ratedCv) * 100;
 
-            document.getElementById('live_cv_result').innerHTML = `<b>${reqCv.toFixed(2)}</b>`;
+            document.getElementById('live_cv_result').innerHTML = `<b style="color: #fff; font-size:1.2em;">${reqCv.toFixed(2)}</b>`;
             document.getElementById('card_new_flow').innerText = totalQ.toFixed(1) + " Nm³/h";
             document.getElementById('card_new_cv').innerText = reqCv.toFixed(3);
-            
             document.getElementById('card_new_util_text').innerText = utilization.toFixed(1);
             
             let utilBar = document.getElementById('card_new_util_bar');
@@ -472,39 +477,39 @@
             let diagBox = document.getElementById('dynamic_diagnosis');
             let cvHighlight = document.getElementById('cv_highlight');
 
-            // 6. Enforcing the 40-60% Sweet Spot Logic
+            // Utilization Logic
             if (utilization > 85) {
                 utilBar.style.background = "var(--danger)";
                 cvHighlight.style.color = "var(--danger)";
                 diagBox.style.background = "#ffe6e6";
                 diagBox.style.color = "var(--danger)";
                 diagBox.style.border = "1px solid var(--danger)";
-                diagBox.innerHTML = "UNDERSIZED (CRITICAL): Exceeds 85% capacity. Valve mechanically cannot open wide enough. Vacuum failure imminent under max load.";
+                diagBox.innerHTML = "UNDERSIZED (CRITICAL): Exceeds 85% capacity. Valve cannot supply N2 fast enough. Vacuum failure imminent under max load.";
             } else if (utilization > 60) {
                 utilBar.style.background = "var(--warning)";
                 cvHighlight.style.color = "var(--warning)";
                 diagBox.style.background = "#fff0b3";
                 diagBox.style.color = "#b36b00";
                 diagBox.style.border = "1px solid var(--warning)";
-                diagBox.innerHTML = "UNDERSIZED (MARGINAL): Exceeds 60% sweet spot. Valve vulnerable to mechanical droop and sluggish compensation.";
+                diagBox.innerHTML = "UNDERSIZED (MARGINAL): Exceeds 60% sweet spot. Vulnerable to droop and sluggish compensation.";
             } else if (utilization >= 40 && utilization <= 60) {
                 utilBar.style.background = "var(--success)";
                 cvHighlight.style.color = "var(--success)";
                 diagBox.style.background = "#e6ffe6";
                 diagBox.style.color = "var(--success)";
                 diagBox.style.border = "1px solid var(--success)";
-                diagBox.innerHTML = "OPTIMAL (SWEET SPOT): Valve operates perfectly within the 40%-60% linear control range.";
+                diagBox.innerHTML = "OPTIMAL (SWEET SPOT): Valve operates perfectly within the 40%-60% control range.";
             } else {
                 utilBar.style.background = "var(--oversized)";
                 cvHighlight.style.color = "var(--oversized)";
                 diagBox.style.background = "#f2e6ff";
                 diagBox.style.color = "var(--oversized)";
                 diagBox.style.border = "1px solid var(--oversized)";
-                diagBox.innerHTML = "OVERSIZED: Operating below 40% capacity. Valve will barely crack open, risking vibration and chattering damage.";
+                diagBox.innerHTML = "OVERSIZED: Operating below 40% capacity. Valve will barely crack open, risking chattering damage.";
             }
         } else {
             // Reset if missing inputs
-            document.getElementById('live_cv_result').innerHTML = "C<sub>v</sub>";
+            document.getElementById('live_cv_result').innerHTML = "Required C<sub>v</sub>";
             document.getElementById('card_new_flow').innerText = "-- Nm³/h";
             document.getElementById('card_new_cv').innerText = "--";
             document.getElementById('card_new_util_text').innerText = "0";
